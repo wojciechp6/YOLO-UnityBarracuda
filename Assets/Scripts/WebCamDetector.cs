@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Barracuda;
+using UnityEngine.Profiling;
 
 [RequireComponent(typeof(OnGUICanvasRelativeDrawer))]
 public class WebCamDetector : MonoBehaviour
@@ -21,11 +22,14 @@ public class WebCamDetector : MonoBehaviour
     [Tooltip("The minimum value of box confidence below which boxes won't be drawn.")]
     public float MinBoxConfidence = 0.3f;
 
+    
     NNHandler nn;
     YOLOHandler yolo;
 
     WebCamTexture camTexture;
     Texture2D displayingTex;
+
+    TextureScaler textureScaler;
 
     string[] classesNames;
     OnGUICanvasRelativeDrawer relativeDrawer;
@@ -41,6 +45,8 @@ public class WebCamDetector : MonoBehaviour
         nn = new NNHandler(modelFile);
         yolo = new YOLOHandler(nn);
 
+        textureScaler = new TextureScaler(nn.model.inputs[0].shape[1], nn.model.inputs[0].shape[2]);
+
         relativeDrawer = GetComponent<OnGUICanvasRelativeDrawer>();
         relativeDrawer.relativeObject = imageRenderer.GetComponent<RectTransform>();
 
@@ -50,21 +56,33 @@ public class WebCamDetector : MonoBehaviour
     void Update()
     {
         CaptureAndPrepareTexture(camTexture, ref displayingTex);
+
         var boxes = yolo.Run(displayingTex);
-        DisplayResults(boxes, displayingTex);
+        DrawResults(boxes, displayingTex);
+        imageRenderer.texture = displayingTex;
+    }
+
+    private void OnDestroy()
+    {
+        nn.Dispose();
+        yolo.Dispose();
+        textureScaler.Dispose();
+
+        camTexture.Stop();
     }
 
     private void CaptureAndPrepareTexture(WebCamTexture camTexture, ref Texture2D tex)
     {
-        TextureTransformTools.CropToSquare(camTexture, ref tex);
-        TextureTransformTools.scale(tex, nn.model.inputs[0].shape[1], nn.model.inputs[0].shape[2]);
+        Profiler.BeginSample("Texture processing");
+        TextureCropTools.CropToSquare(camTexture, ref tex);
+        textureScaler.Scale(tex);
+        Profiler.EndSample();
     }
 
-    private void DisplayResults(IEnumerable<YOLOHandler.ResultBox> results, Texture2D img)
+    private void DrawResults(IEnumerable<YOLOHandler.ResultBox> results, Texture2D img)
     {
         relativeDrawer.Clear();
         results.ForEach(box => DrawBox(box, displayingTex));
-        imageRenderer.texture = displayingTex;
     }
 
     private void DrawBox(YOLOHandler.ResultBox box, Texture2D img)
@@ -80,17 +98,17 @@ public class WebCamDetector : MonoBehaviour
     /// <summary>
     /// Return first backfaced camera name if avaible, otherwise first possible
     /// </summary>
-    string SelectCameraDevice() 
+    string SelectCameraDevice()
     {
         if (WebCamTexture.devices.Length == 0)
             throw new Exception("Any camera isn't avaible!");
 
-        foreach(var cam in WebCamTexture.devices)
+        foreach (var cam in WebCamTexture.devices)
         {
             if (!cam.isFrontFacing)
                 return cam.name;
         }
         return WebCamTexture.devices[0].name;
     }
- 
+
 }

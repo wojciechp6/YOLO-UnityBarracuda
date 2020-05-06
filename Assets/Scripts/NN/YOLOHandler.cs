@@ -8,7 +8,7 @@ using UnityEngine.Profiling;
 using Unity.Jobs;
 using Unity.Collections;
 
-public class YOLOHandler
+public class YOLOHandler : IDisposable
 {
     public struct ResultBox
     {
@@ -45,28 +45,36 @@ public class YOLOHandler
 
     public List<ResultBox> Run(Texture2D tex)
     {
-        Profiler.BeginSample("Run");
+        Profiler.BeginSample("YOLO.Run");
 
         Tensor input = new Tensor(tex);
 
         var preprocessed = Preprocess(input);
-        Tensor output = Execute(preprocessed);
-        var results = Postprocess(output);
-
         input.Dispose();
+
+        Tensor output = Execute(preprocessed);
         preprocessed.Dispose();
+
+        var results = Postprocess(output);
         output.Dispose();
 
         Profiler.EndSample();
         return results;
     }
 
+    public void Dispose()
+    {
+        premulTensor.Dispose();
+    }
+
     private Tensor Execute(Tensor preprocessed)
     {
         Profiler.BeginSample("YOLO.Execute");
+
         nn.worker.Execute(preprocessed);
         nn.worker.WaitForCompletion();
         var output = nn.worker.PeekOutput();
+        
         Profiler.EndSample();
         return output;
     }
