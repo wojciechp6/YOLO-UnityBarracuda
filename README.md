@@ -4,8 +4,8 @@ Object detection app build on Unity Barracuda and YOLOv2 Tiny
 # About
 This project is simple open source project presenting example of use Unity Barracuda. It use lite version of YOLOv2 (v3 is not currently supported). Target platform are mobile devices but you can use it also on other devices. The sample use camera as input.
 
-![Sample1](Images/1.JPG)
-![Sample2](Images/2.JPG)
+![Sample1](Images/1.JPG)  
+![Sample2](Images/2.JPG)  
 The images was taken from open COCO dataset.
 
 # Dependencies
