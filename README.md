@@ -6,6 +6,7 @@ This project is simple open source project presenting example of use Unity Barra
 
 ![Sample1](Images/1.JPG)
 ![Sample2](Images/2.JPG)
+The images was taken from open COCO dataset.
 
 # Dependencies
 - [**Unity Barracuda**](https://docs.unity3d.com/Packages/com.unity.barracuda@0.7/manual/index.html) installed by Package Manager (tested on version 0.7.0)
