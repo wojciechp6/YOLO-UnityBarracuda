@@ -19,7 +19,7 @@ There are only two MonoBehaviour scripts:
 - *OnGUICanvasRelativeDrawer.cs* required by previous script to render text
 
 # Performance 
-It runs in ~45FPS on my laptop (GTX 1060 Max-Q and i5-7300HQ)
+It runs in ~45FPS on my laptop (GTX 1060 Max-Q and i5-7300HQ).
 Model on my GPU infereces about 10ms.
 ![Timeline](Images/timeline.JPG)
 
