@@ -33,6 +33,8 @@ public class YOLOHandler : IDisposable
 
     Tensor premulTensor;
 
+    PerformanceCounter.StopwatchCounter stopwatch = new PerformanceCounter.StopwatchCounter("Net inference time");
+
     public YOLOHandler(NNHandler nn)
     {
         this.nn = nn;
@@ -41,6 +43,8 @@ public class YOLOHandler : IDisposable
 
         inputWidthHeight = nn.model.inputs[0].shape[1];
         premulTensor = new Tensor(1, 1, new float[] { 255 });
+
+        PerformanceCounter.GetInstance()?.AddCounter(stopwatch);
     }
 
     public List<ResultBox> Run(Texture2D tex)
@@ -52,7 +56,9 @@ public class YOLOHandler : IDisposable
         var preprocessed = Preprocess(input);
         input.Dispose();
 
+        stopwatch.Start();
         Tensor output = Execute(preprocessed);
+        stopwatch.Stop();
         preprocessed.Dispose();
 
         var results = Postprocess(output);
