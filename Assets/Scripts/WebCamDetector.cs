@@ -56,12 +56,11 @@ public class WebCamDetector : MonoBehaviour
         relativeDrawer.relativeObject = imageRenderer.GetComponent<RectTransform>();
 
         classesNames = classesFile.text.Split(',');
-        displayingTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Tests/test_image.jpg");
     }
 
     void Update()
     {
-        //CaptureAndPrepareTexture(camTexture, ref displayingTex);
+        CaptureAndPrepareTexture(camTexture, ref displayingTex);
 
         var boxes = yolo.Run(displayingTex);
         DrawResults(boxes, displayingTex);
