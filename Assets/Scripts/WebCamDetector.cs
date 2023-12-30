@@ -84,13 +84,13 @@ public class WebCamDetector : MonoBehaviour
         Profiler.EndSample();
     }
 
-    private void DrawResults(IEnumerable<YOLOHandler.ResultBox> results, Texture2D img)
+    private void DrawResults(IEnumerable<ResultBox> results, Texture2D img)
     {
         relativeDrawer.Clear();
         results.ForEach(box => DrawBox(box, displayingTex));
     }
 
-    private void DrawBox(YOLOHandler.ResultBox box, Texture2D img)
+    private void DrawBox(ResultBox box, Texture2D img)
     {
         if (box.classes[box.bestClassIdx] < MinBoxConfidence)
             return;
