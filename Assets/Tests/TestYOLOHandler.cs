@@ -7,6 +7,7 @@ using NN;
 using Unity.Barracuda;
 using UnityEditor;
 using System.Linq;
+using static UnityEngine.Networking.UnityWebRequest;
 
 
 public class TestYOLOHandler
@@ -15,6 +16,7 @@ public class TestYOLOHandler
     const string IMAGE_PATH = "Assets/Tests/test_image.jpg";
     const float min_confidence = 0.3f;
     private YOLOHandler yolo;
+    private Texture2D test_image;
 
     [SetUp]
     public void Setup()
@@ -22,6 +24,8 @@ public class TestYOLOHandler
         NNModel model = AssetDatabase.LoadAssetAtPath<NNModel>(MODEL_PATH);
         NNHandler nnHandler = new(model);
         yolo = new YOLOHandler(nnHandler);
+        test_image = AssetDatabase.LoadAssetAtPath<Texture2D>(IMAGE_PATH);
+
     }
 
     [TearDown]
@@ -39,31 +43,37 @@ public class TestYOLOHandler
     [Test]
     public void NotZeroResult()
     {
-        // given
-        Texture2D image = AssetDatabase.LoadAssetAtPath<Texture2D>(IMAGE_PATH);
-        var results = yolo.Run(image);
+        // when
+        var results = yolo.Run(test_image);
         Assert.NotZero(results.Count);
     }
 
     [Test]
     public void TwoConfidentResults()
     {
-        // given
-        Texture2D image = AssetDatabase.LoadAssetAtPath<Texture2D>(IMAGE_PATH);
-        var results = yolo.Run(image);
-        var confident_results = results.Where(box => box.classes[box.bestClassIdx] > min_confidence).ToList();
-        Assert.AreEqual(2, confident_results.ToList().Count);
+        // when
+        var results = yolo.Run(test_image);
+        List<YOLOHandler.ResultBox> confident_results = GetConfidentResults(results);
+
+        // then
+        Assert.AreEqual(2, confident_results.Count);
     }
 
     [Test]
     public void ConfidentResultsHasRightClasses()
     {
         // given
-        Texture2D image = AssetDatabase.LoadAssetAtPath<Texture2D>(IMAGE_PATH);
-        var results = yolo.Run(image);
-        var confident_results = results.Where(box => box.classes[box.bestClassIdx] > min_confidence).ToList();
+        var results = yolo.Run(test_image);
+        var confident_results = GetConfidentResults(results);
+
+        // then
         Assert.AreEqual(19, confident_results[0].bestClassIdx);
-        Assert.AreEqual(14, confident_results[1].bestClassIdx);
+        Assert.AreEqual(14, confident_results[1].bestClassIdx); 
+    }
+
+    private List<YOLOHandler.ResultBox> GetConfidentResults(List<YOLOHandler.ResultBox> rawResults)
+    {
+        return rawResults.Where(box => box.classes[box.bestClassIdx] > min_confidence).ToList();
     }
 
 }
