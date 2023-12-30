@@ -8,6 +8,7 @@ using Unity.Barracuda;
 using UnityEditor;
 using System.Linq;
 using static UnityEngine.Networking.UnityWebRequest;
+using UnityEngine.Assertions.Must;
 
 
 public class TestYOLOHandler
@@ -53,7 +54,7 @@ public class TestYOLOHandler
     {
         // when
         var results = yolo.Run(test_image);
-        List<YOLOHandler.ResultBox> confident_results = GetConfidentResults(results);
+        var confident_results = GetConfidentResults(results);
 
         // then
         Assert.AreEqual(2, confident_results.Count);
@@ -62,18 +63,46 @@ public class TestYOLOHandler
     [Test]
     public void ConfidentResultsHasRightClasses()
     {
-        // given
+        // given 
+        int firstExpectedClass = 19;
+        int secondExpectedClass = 14;
+
+        // when
         var results = yolo.Run(test_image);
         var confident_results = GetConfidentResults(results);
 
         // then
-        Assert.AreEqual(19, confident_results[0].bestClassIdx);
-        Assert.AreEqual(14, confident_results[1].bestClassIdx); 
+        Assert.AreEqual(firstExpectedClass, confident_results[0].bestClassIdx);
+        Assert.AreEqual(secondExpectedClass, confident_results[1].bestClassIdx); 
     }
 
-    private List<YOLOHandler.ResultBox> GetConfidentResults(List<YOLOHandler.ResultBox> rawResults)
+    [Test]
+    public void ConfidentResultsHasRightBoxes()
+    {
+        // given
+        Rect firstExpectedRect = new(x: 0.90f, y: 0.24f, width: 0.25f, height: 0.38f);
+        Rect secondExpectedRect = new(x: 0.26f, y: 0.18f, width: 0.60f, height: 0.81f);
+
+        // when
+        var results = yolo.Run(test_image);
+        var confident_results = GetConfidentResults(results);
+
+        // then
+        AssertAreRectsEqual(firstExpectedRect, confident_results[0].rect);
+        AssertAreRectsEqual(secondExpectedRect, confident_results[1].rect);
+    }
+
+    private List<ResultBox> GetConfidentResults(List<ResultBox> rawResults)
     {
         return rawResults.Where(box => box.classes[box.bestClassIdx] > min_confidence).ToList();
+    }
+
+    private void AssertAreRectsEqual(Rect expected, Rect actual)
+    {
+        Assert.AreEqual(expected.xMin, actual.xMin, 0.01f);
+        Assert.AreEqual(expected.xMax, actual.xMax, 0.01f);
+        Assert.AreEqual(expected.yMin, actual.yMin, 0.01f);
+        Assert.AreEqual(expected.yMax, actual.yMax, 0.01f);
     }
 
 }
