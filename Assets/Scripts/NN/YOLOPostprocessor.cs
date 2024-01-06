@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Barracuda;
 using UnityEngine.Profiling;
+using static UnityEngine.Networking.UnityWebRequest;
+using static UnityEngine.Analytics.IAnalytic;
+using System.Linq;
 
 namespace NN
 {
@@ -25,40 +28,45 @@ namespace NN
 
         static public List<ResultBox> DecodeNNOut(Tensor output)
         {
-            float[] data = output.AsFloats();
+            List<ResultBox> boxes = new();
+            var reshapedOutput = output.Reshape(new[] { 13, 13, 5, 25 });
+            float[] vals = reshapedOutput.AsFloats();
+            output.Dispose();
+            var array = TensorToArray4D(reshapedOutput);
+            int widht = array.GetLength(0);
+            int height = array.GetLength(1);
 
-            int cellSize = output.channels;
-            int boxSize = cellSize / BoxesPerCell;
-
-            List<ResultBox> results = new List<ResultBox>();
-
-            for (int y_cell = 0; y_cell < output.height; y_cell++)
+            for (int y_cell = 0; y_cell < height; y_cell++)
             {
-                for (int x_cell = 0; x_cell < output.width; x_cell++)
+                for (int x_cell = 0; x_cell < widht; x_cell++)
                 {
-                    for (int box = 0; box < BoxesPerCell; box++)
-                    {
-                        int idx = (x_cell + y_cell * output.width) * cellSize + box * boxSize;
-
-                        var result = DecodeBox(data, idx, x_cell, y_cell, box);
-                        if (result.HasValue)
-                            results.Add(result.Value);
-                    }
+                    var cell_boxes = DecodeCell(array, x_cell, y_cell);
+                    boxes.AddRange(cell_boxes);
                 }
             }
 
-            return results;
+            return boxes;
         }
 
-
-        static private ResultBox? DecodeBox(float[] data, int startIndex, int x_cell, int y_cell, int box)
+        private static IEnumerable<ResultBox> DecodeCell(float[,,,] array, int y_cell, int x_cell)
         {
-            float box_score = Sigmoid(data[startIndex + 4]);
+            int boxes = array.GetLength(2); 
+            for (int box_index = 0; box_index < boxes; box_index++)
+            {
+                var box = DecodeBox(array, x_cell, y_cell, box_index);
+                if (box.HasValue)
+                    yield return box.Value;
+            }
+        }
+
+        static private ResultBox? DecodeBox(float[,,,] array, int x_cell, int y_cell, int box)
+        {
+            float box_score = Sigmoid(array[x_cell, y_cell, box, 4]);
             if (box_score < DISCARD_TRESHOLD)
                 return null;
 
-            Rect box_rect = DecodeBoxRectangle(data, startIndex, x_cell, y_cell, box);
-            float[] box_classes = DecodeBoxClasses(data, startIndex, box_score);
+            Rect box_rect = DecodeBoxRectangle(array, x_cell, y_cell, box);
+            float[] box_classes = DecodeBoxClasses(array, x_cell, y_cell, box, box_score);
 
             int bestClassIdx = box_classes.MaxIdx();
 
@@ -72,20 +80,26 @@ namespace NN
             return result;
         }
 
-        static private float[] DecodeBoxClasses(float[] data, int startIndex, float box_score)
+        static private float[] DecodeBoxClasses(float[,,,] array, int x_cell, int y_cell, int box, float box_score)
         {
-            float[] box_classes = data.GetRange(startIndex + 5, startIndex + 5 + classesNum);
+            IEnumerable<float> get_box_classes() 
+            { 
+                for (int i = 5; i < 5 + classesNum; i++) 
+                    yield return array[x_cell, y_cell, box, i]; 
+            };
+
+            var box_classes = get_box_classes().ToArray();
             box_classes = Softmax(box_classes);
             box_classes.Update(x => x * box_score);
             return box_classes;
         }
 
-        static private Rect DecodeBoxRectangle(float[] data, int startIndex, int x_cell, int y_cell, int box)
+        static private Rect DecodeBoxRectangle(float[,,,] data, int x_cell, int y_cell, int box)
         {
-            float box_x = (x_cell + Sigmoid(data[startIndex])) * 32 / inputWidthHeight;
-            float box_y = (y_cell + Sigmoid(data[startIndex + 1])) * 32 / inputWidthHeight;
-            float box_width = Mathf.Exp(data[startIndex + 2]) * anchors[2 * box] * 32 / inputWidthHeight;
-            float box_height = Mathf.Exp(data[startIndex + 3]) * anchors[2 * box + 1] * 32 / inputWidthHeight;
+            float box_x = (x_cell + Sigmoid(data[x_cell, y_cell, box, 0])) * 32 / inputWidthHeight;
+            float box_y = (y_cell + Sigmoid(data[x_cell, y_cell, box, 1])) * 32 / inputWidthHeight;
+            float box_width = Mathf.Exp(data[x_cell, y_cell, box, 2]) * anchors[2 * box] * 32 / inputWidthHeight;
+            float box_height = Mathf.Exp(data[x_cell, y_cell, box, 3]) * anchors[2 * box + 1] * 32 / inputWidthHeight;
 
             return new Rect(box_x - box_width / 2,
                 box_y - box_height / 2, box_width, box_height);
@@ -138,6 +152,26 @@ namespace NN
             values.ForEach((x, i) => dic.Add(new KeyValuePair<int, float>(i, x)));
             dic.Sort((pair1, pair2) => pair2.Value.CompareTo(pair1.Value));
             return (int[])new int[values.Length].Update((x, i) => dic[i].Key);
+        }
+
+        private static float[,,,] TensorToArray4D(Tensor tensor)
+        {
+            float[,,,] output = new float[tensor.batch, tensor.height, tensor.width, tensor.channels];
+            var data = tensor.AsFloats();
+            int bytes = Buffer.ByteLength(data);
+            Buffer.BlockCopy(data, 0, output, 0, bytes);
+            return output;
+        }
+
+        private static float[,] Get2DSlice(float[,,,] array, int firstDim, int secondDim)
+        {
+            int sliceSize = array.GetLength(2) * array.GetLength(3);
+            int bytes = sizeof(float) * sliceSize; 
+            int start = firstDim * array.GetLength(1) * sliceSize + secondDim * sliceSize;
+            int startBytes = start * sizeof(float);
+            float[,] result = new float[array.GetLength(2), array.GetLength(3)];
+            Buffer.BlockCopy(array, startBytes, result, 0, bytes);
+            return result;
         }
     }
 }

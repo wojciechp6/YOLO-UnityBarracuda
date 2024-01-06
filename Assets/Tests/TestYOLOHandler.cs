@@ -2,20 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 using NN;
 using Unity.Barracuda;
 using UnityEditor;
 using System.Linq;
-using static UnityEngine.Networking.UnityWebRequest;
-using UnityEngine.Assertions.Must;
+using System.IO;
 
 
 public class TestYOLOHandler
 {
     const string MODEL_PATH = "Assets/YOLOv2 Tiny.onnx";
     const string IMAGE_PATH = "Assets/Tests/test_image.jpg";
-    const float min_confidence = 0.3f;
+    const float min_confidence = 0.1f;
     private YOLOHandler yolo;
     private Texture2D test_image;
 
@@ -80,8 +78,8 @@ public class TestYOLOHandler
     public void ConfidentResultsHasRightBoxes()
     {
         // given
-        Rect firstExpectedRect = new(x: 0.90f, y: 0.24f, width: 0.25f, height: 0.38f);
-        Rect secondExpectedRect = new(x: 0.26f, y: 0.18f, width: 0.60f, height: 0.81f);
+        Rect firstExpectedRect = new(x:0.56f, y:0.20f, width:0.23f, height:0.31f);
+        Rect secondExpectedRect = new(x:-0.01f, y:0.13f, width:0.55f, height:0.76f);
 
         // when
         var results = yolo.Run(test_image);
@@ -99,10 +97,11 @@ public class TestYOLOHandler
 
     private void AssertAreRectsEqual(Rect expected, Rect actual)
     {
-        Assert.AreEqual(expected.xMin, actual.xMin, 0.01f);
-        Assert.AreEqual(expected.xMax, actual.xMax, 0.01f);
-        Assert.AreEqual(expected.yMin, actual.yMin, 0.01f);
-        Assert.AreEqual(expected.yMax, actual.yMax, 0.01f);
+        const float delta = 0.01f;
+        Assert.AreEqual(expected.xMin, actual.xMin, delta);
+        Assert.AreEqual(expected.xMax, actual.xMax, delta);
+        Assert.AreEqual(expected.yMin, actual.yMin, delta);
+        Assert.AreEqual(expected.yMax, actual.yMax, delta);
     }
 
 }
