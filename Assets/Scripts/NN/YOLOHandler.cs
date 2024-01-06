@@ -6,14 +6,6 @@ using UnityEngine.Profiling;
 
 namespace NN
 {
-    public struct ResultBox
-    {
-        public Rect rect;
-        public float confidence;
-        public float[] classes;
-        public int bestClassIdx;
-    }
-
     public class YOLOHandler : IDisposable
     {
         NNHandler nn;
