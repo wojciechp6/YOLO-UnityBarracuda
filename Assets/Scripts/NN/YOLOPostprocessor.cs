@@ -48,7 +48,7 @@ namespace NN
             return boxes;
         }
 
-        private static IEnumerable<ResultBox> DecodeCell(float[,,,] array, int y_cell, int x_cell)
+        private static IEnumerable<ResultBox> DecodeCell(float[,,,] array, int x_cell, int y_cell)
         {
             int boxes = array.GetLength(2); 
             for (int box_index = 0; box_index < boxes; box_index++)
@@ -61,13 +61,12 @@ namespace NN
 
         static private ResultBox? DecodeBox(float[,,,] array, int x_cell, int y_cell, int box)
         {
-            float box_score = Sigmoid(array[x_cell, y_cell, box, 4]);
+            float box_score = DecodeBoxScore(array, x_cell, y_cell, box);
             if (box_score < DISCARD_TRESHOLD)
                 return null;
 
             Rect box_rect = DecodeBoxRectangle(array, x_cell, y_cell, box);
             float[] box_classes = DecodeBoxClasses(array, x_cell, y_cell, box, box_score);
-
             int bestClassIdx = box_classes.MaxIdx();
 
             var result = new ResultBox
@@ -80,15 +79,20 @@ namespace NN
             return result;
         }
 
+        static private float DecodeBoxScore(float[,,,] array, int x_cell, int y_cell, int box)
+        {
+            const int boxScoreIndex = 4;
+            return Sigmoid(array[y_cell, x_cell, box, boxScoreIndex]);
+        }
+
         static private float[] DecodeBoxClasses(float[,,,] array, int x_cell, int y_cell, int box, float box_score)
         {
-            IEnumerable<float> get_box_classes() 
-            { 
-                for (int i = 5; i < 5 + classesNum; i++) 
-                    yield return array[x_cell, y_cell, box, i]; 
-            };
+            float[] box_classes = new float[classesNum];
+            const int classesOffset = 5;
+            
+            for (int i = 0; i < classesNum; i++)
+                box_classes[i] = array[y_cell, x_cell, box, i + classesOffset];
 
-            var box_classes = get_box_classes().ToArray();
             box_classes = Softmax(box_classes);
             box_classes.Update(x => x * box_score);
             return box_classes;
@@ -96,10 +100,12 @@ namespace NN
 
         static private Rect DecodeBoxRectangle(float[,,,] data, int x_cell, int y_cell, int box)
         {
-            float box_x = (x_cell + Sigmoid(data[x_cell, y_cell, box, 0])) * 32 / inputWidthHeight;
-            float box_y = (y_cell + Sigmoid(data[x_cell, y_cell, box, 1])) * 32 / inputWidthHeight;
-            float box_width = Mathf.Exp(data[x_cell, y_cell, box, 2]) * anchors[2 * box] * 32 / inputWidthHeight;
-            float box_height = Mathf.Exp(data[x_cell, y_cell, box, 3]) * anchors[2 * box + 1] * 32 / inputWidthHeight;
+            const float downscaleRatio = 32;
+            const float normalizeRatio = downscaleRatio / inputWidthHeight;
+            float box_x = (x_cell + Sigmoid(data[y_cell, x_cell, box, 0])) * normalizeRatio;
+            float box_y = (y_cell + Sigmoid(data[y_cell, x_cell, box, 1])) * normalizeRatio;
+            float box_width = Mathf.Exp(data[y_cell, x_cell, box, 2]) * anchors[2 * box] * normalizeRatio;
+            float box_height = Mathf.Exp(data[y_cell, x_cell, box, 3]) * anchors[2 * box + 1] * normalizeRatio;
 
             return new Rect(box_x - box_width / 2,
                 box_y - box_height / 2, box_width, box_height);
@@ -125,10 +131,8 @@ namespace NN
 
             for (int c = 0; c < classesNum; c++)
             {
-                float[] classValues = new float[boxes.Count];
-                classValues.Update((x, i) => boxes[i].classes[c]);
-
-                int[] sortedIndexes = _sortIdx(classValues);
+                float[] classValues = boxes.Select((box, i) => box.classes[c]).ToArray();
+                int[] sortedIndexes = SortBoxesByClassValue(classValues);
 
                 for (int i = 0; i < boxes.Count; i++)
                 {
@@ -146,32 +150,21 @@ namespace NN
             }
         }
 
-        private static int[] _sortIdx(float[] values)
+        private static int[] SortBoxesByClassValue(float[] values)
         {
-            List<KeyValuePair<int, float>> dic = new List<KeyValuePair<int, float>>();
+            List<KeyValuePair<int, float>> dic = new();
             values.ForEach((x, i) => dic.Add(new KeyValuePair<int, float>(i, x)));
             dic.Sort((pair1, pair2) => pair2.Value.CompareTo(pair1.Value));
-            return (int[])new int[values.Length].Update((x, i) => dic[i].Key);
+            return dic.Select((x, i) => x.Key).ToArray();
         }
 
-        private static float[,,,] TensorToArray4D(Tensor tensor)
+        private static float[,,,] TensorToArray4D(this Tensor tensor)
         {
             float[,,,] output = new float[tensor.batch, tensor.height, tensor.width, tensor.channels];
             var data = tensor.AsFloats();
             int bytes = Buffer.ByteLength(data);
             Buffer.BlockCopy(data, 0, output, 0, bytes);
             return output;
-        }
-
-        private static float[,] Get2DSlice(float[,,,] array, int firstDim, int secondDim)
-        {
-            int sliceSize = array.GetLength(2) * array.GetLength(3);
-            int bytes = sizeof(float) * sliceSize; 
-            int start = firstDim * array.GetLength(1) * sliceSize + secondDim * sliceSize;
-            int startBytes = start * sizeof(float);
-            float[,] result = new float[array.GetLength(2), array.GetLength(3)];
-            Buffer.BlockCopy(array, startBytes, result, 0, bytes);
-            return result;
         }
     }
 }
