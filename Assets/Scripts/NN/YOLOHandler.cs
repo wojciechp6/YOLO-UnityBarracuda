@@ -20,7 +20,6 @@ namespace NN
             this.nn = nn;
             ops = BarracudaUtils.CreateOps(WorkerFactory.Type.Compute);
 
-            var inputWidthHeight = nn.model.inputs[0].shape[5];
             premulTensor = new Tensor(1, 1, new float[] { 255 });
 
             PerformanceCounter.GetInstance()?.AddCounter(stopwatch);
@@ -73,7 +72,7 @@ namespace NN
         {
             Profiler.BeginSample("YOLO.Postprocess");
             var results = YOLOPostprocessor.DecodeNNOut(x);
-            YOLOPostprocessor.RemoveDuplicats(results);
+            DuplicatesSupressor.RemoveDuplicats(results);
             Profiler.EndSample();
             return results;
         }

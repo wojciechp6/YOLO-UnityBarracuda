@@ -1,13 +1,11 @@
 ﻿using System.Collections;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Barracuda;
 using UnityEngine.Profiling;
 using NN;
-using UnityEditor;
 
 [RequireComponent(typeof(OnGUICanvasRelativeDrawer))]
 public class WebCamDetector : MonoBehaviour

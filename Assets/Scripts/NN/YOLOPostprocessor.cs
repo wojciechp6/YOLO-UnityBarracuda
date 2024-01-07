@@ -2,22 +2,16 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Barracuda;
-using UnityEngine.Profiling;
-using static UnityEngine.Networking.UnityWebRequest;
-using static UnityEngine.Analytics.IAnalytic;
-using System.Linq;
 
 namespace NN
 {
      static public class YOLOPostprocessor
     {
         const float DISCARD_TRESHOLD = 0.1f;
-        const float OVERLAP_TRESHOLD = 0.2f;
-
         const int classesNum = 20;
-        static readonly float[] anchors = new[] { 1.08f, 1.19f, 3.42f, 4.41f, 6.63f, 11.38f, 9.42f, 5.11f, 16.62f, 10.52f };
         const int BoxesPerCell = 5;
         const int inputWidthHeight = 416;
+        static readonly float[] anchors = new[] { 1.08f, 1.19f, 3.42f, 4.41f, 6.63f, 11.38f, 9.42f, 5.11f, 16.62f, 10.52f };
 
         static IOps cpuOps;
 
@@ -29,10 +23,7 @@ namespace NN
         static public List<ResultBox> DecodeNNOut(Tensor output)
         {
             List<ResultBox> boxes = new();
-            var reshapedOutput = output.Reshape(new[] { 13, 13, 5, 25 });
-            float[] vals = reshapedOutput.AsFloats();
-            output.Dispose();
-            var array = TensorToArray4D(reshapedOutput);
+            float[,,,] array = ReadOutputToArray(output);
             int widht = array.GetLength(0);
             int height = array.GetLength(1);
 
@@ -46,6 +37,14 @@ namespace NN
             }
 
             return boxes;
+        }
+
+        private static float[,,,] ReadOutputToArray(Tensor output)
+        {
+            var reshapedOutput = output.Reshape(new[] { output.height, output.width, BoxesPerCell, 25 });
+            var array = TensorToArray4D(reshapedOutput);
+            reshapedOutput.Dispose();
+            return array;
         }
 
         private static IEnumerable<ResultBox> DecodeCell(float[,,,] array, int x_cell, int y_cell)
@@ -102,13 +101,20 @@ namespace NN
         {
             const float downscaleRatio = 32;
             const float normalizeRatio = downscaleRatio / inputWidthHeight;
-            float box_x = (x_cell + Sigmoid(data[y_cell, x_cell, box, 0])) * normalizeRatio;
-            float box_y = (y_cell + Sigmoid(data[y_cell, x_cell, box, 1])) * normalizeRatio;
-            float box_width = Mathf.Exp(data[y_cell, x_cell, box, 2]) * anchors[2 * box] * normalizeRatio;
-            float box_height = Mathf.Exp(data[y_cell, x_cell, box, 3]) * anchors[2 * box + 1] * normalizeRatio;
+            
+            const int boxCenterXIndex = 0;
+            const int boxCenterYIndex = 1;
+            const int boxWidthIndex = 2;
+            const int boxHeightIndex = 3;
 
-            return new Rect(box_x - box_width / 2,
-                box_y - box_height / 2, box_width, box_height);
+            float boxCenterX = (x_cell + Sigmoid(data[y_cell, x_cell, box, boxCenterXIndex])) * normalizeRatio;
+            float boxCenterY = (y_cell + Sigmoid(data[y_cell, x_cell, box, boxCenterYIndex])) * normalizeRatio;
+            float boxWidth = Mathf.Exp(data[y_cell, x_cell, box, boxWidthIndex]) * anchors[2 * box] * normalizeRatio;
+            float boxHeight = Mathf.Exp(data[y_cell, x_cell, box, boxHeightIndex]) * anchors[2 * box + 1] * normalizeRatio;
+
+            float box_x = boxCenterX - boxWidth / 2;
+            float box_y = boxCenterY - boxHeight / 2;
+            return new Rect(box_x, box_y, boxWidth, boxHeight);
         }
 
         static private float Sigmoid(float value)
@@ -118,44 +124,10 @@ namespace NN
 
         static private float[] Softmax(float[] values)
         {
-            Tensor t = new Tensor(1, values.Length, values);
-            var ret = cpuOps.Softmax(t, axis: -1).AsFloats();
-            t.Dispose();
-            return ret;
-        }
-
-        static public void RemoveDuplicats(List<ResultBox> boxes)
-        {
-            if (boxes.Count == 0)
-                return;
-
-            for (int c = 0; c < classesNum; c++)
-            {
-                float[] classValues = boxes.Select((box, i) => box.classes[c]).ToArray();
-                int[] sortedIndexes = SortBoxesByClassValue(classValues);
-
-                for (int i = 0; i < boxes.Count; i++)
-                {
-                    int i_index = sortedIndexes[i];
-                    if (boxes[i_index].classes[c] == 0)
-                        continue;
-
-                    for (int j = i + 1; j < boxes.Count; j++)
-                    {
-                        int j_index = sortedIndexes[j];
-                        if (NNUtils.BoxesIOU(boxes[i_index].rect, boxes[j_index].rect) >= OVERLAP_TRESHOLD)
-                            boxes[j_index].classes[c] = 0;
-                    }
-                }
-            }
-        }
-
-        private static int[] SortBoxesByClassValue(float[] values)
-        {
-            List<KeyValuePair<int, float>> dic = new();
-            values.ForEach((x, i) => dic.Add(new KeyValuePair<int, float>(i, x)));
-            dic.Sort((pair1, pair2) => pair2.Value.CompareTo(pair1.Value));
-            return dic.Select((x, i) => x.Key).ToArray();
+            Tensor inputTensor = new(1, values.Length, values);
+            float[] output = cpuOps.Softmax(inputTensor, axis: -1).AsFloats();
+            inputTensor.Dispose();
+            return output;
         }
 
         private static float[,,,] TensorToArray4D(this Tensor tensor)
