@@ -7,11 +7,11 @@ namespace NN
 {
      static public class YOLOPostprocessor
     {
-        const float DISCARD_TRESHOLD = 0.1f;
-        const int classesNum = 20;
+        const float DiscardThreshold = 0.1f;
+        const int ClassesNum = 20;
         const int BoxesPerCell = 5;
-        const int inputWidthHeight = 416;
-        static readonly float[] anchors = new[] { 1.08f, 1.19f, 3.42f, 4.41f, 6.63f, 11.38f, 9.42f, 5.11f, 16.62f, 10.52f };
+        const int InputWidthHeight = 416;
+        static readonly float[] Anchors = new[] { 1.08f, 1.19f, 3.42f, 4.41f, 6.63f, 11.38f, 9.42f, 5.11f, 16.62f, 10.52f };
 
         static IOps cpuOps;
 
@@ -41,7 +41,8 @@ namespace NN
 
         private static float[,,,] ReadOutputToArray(Tensor output)
         {
-            var reshapedOutput = output.Reshape(new[] { output.height, output.width, BoxesPerCell, 25 });
+            const int boxSize = 25;
+            var reshapedOutput = output.Reshape(new[] { output.height, output.width, BoxesPerCell, boxSize});
             var array = TensorToArray4D(reshapedOutput);
             reshapedOutput.Dispose();
             return array;
@@ -61,7 +62,7 @@ namespace NN
         static private ResultBox? DecodeBox(float[,,,] array, int x_cell, int y_cell, int box)
         {
             float box_score = DecodeBoxScore(array, x_cell, y_cell, box);
-            if (box_score < DISCARD_TRESHOLD)
+            if (box_score < DiscardThreshold)
                 return null;
 
             Rect box_rect = DecodeBoxRectangle(array, x_cell, y_cell, box);
@@ -86,10 +87,10 @@ namespace NN
 
         static private float[] DecodeBoxClasses(float[,,,] array, int x_cell, int y_cell, int box, float box_score)
         {
-            float[] box_classes = new float[classesNum];
+            float[] box_classes = new float[ClassesNum];
             const int classesOffset = 5;
             
-            for (int i = 0; i < classesNum; i++)
+            for (int i = 0; i < ClassesNum; i++)
                 box_classes[i] = array[y_cell, x_cell, box, i + classesOffset];
 
             box_classes = Softmax(box_classes);
@@ -100,7 +101,7 @@ namespace NN
         static private Rect DecodeBoxRectangle(float[,,,] data, int x_cell, int y_cell, int box)
         {
             const float downscaleRatio = 32;
-            const float normalizeRatio = downscaleRatio / inputWidthHeight;
+            const float normalizeRatio = downscaleRatio / InputWidthHeight;
             
             const int boxCenterXIndex = 0;
             const int boxCenterYIndex = 1;
@@ -109,8 +110,8 @@ namespace NN
 
             float boxCenterX = (x_cell + Sigmoid(data[y_cell, x_cell, box, boxCenterXIndex])) * normalizeRatio;
             float boxCenterY = (y_cell + Sigmoid(data[y_cell, x_cell, box, boxCenterYIndex])) * normalizeRatio;
-            float boxWidth = Mathf.Exp(data[y_cell, x_cell, box, boxWidthIndex]) * anchors[2 * box] * normalizeRatio;
-            float boxHeight = Mathf.Exp(data[y_cell, x_cell, box, boxHeightIndex]) * anchors[2 * box + 1] * normalizeRatio;
+            float boxWidth = Mathf.Exp(data[y_cell, x_cell, box, boxWidthIndex]) * Anchors[2 * box] * normalizeRatio;
+            float boxHeight = Mathf.Exp(data[y_cell, x_cell, box, boxHeightIndex]) * Anchors[2 * box + 1] * normalizeRatio;
 
             float box_x = boxCenterX - boxWidth / 2;
             float box_y = boxCenterY - boxHeight / 2;
