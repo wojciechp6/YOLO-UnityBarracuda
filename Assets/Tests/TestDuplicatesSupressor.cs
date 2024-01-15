@@ -95,7 +95,7 @@ namespace Tests
 
             ResultBox box = new ResultBox
             {
-                bestClassIdx = bestClass,
+                bestClassIndex = bestClass,
                 classes = classes,
                 rect = rect
             };

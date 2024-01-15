@@ -1,12 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
-using NUnit.Framework;
-using UnityEngine;
 using NN;
+using NUnit.Framework;
+using System.Collections.Generic;
+using System.Linq;
 using Unity.Barracuda;
 using UnityEditor;
-using System.Linq;
-using System.IO;
+using UnityEngine;
 
 namespace Tests
 {
@@ -70,8 +68,8 @@ namespace Tests
             var confident_results = GetConfidentResults(results);
 
             // then
-            Assert.AreEqual(firstExpectedClass, confident_results[0].bestClassIdx);
-            Assert.AreEqual(secondExpectedClass, confident_results[1].bestClassIdx);
+            Assert.AreEqual(firstExpectedClass, confident_results[0].bestClassIndex);
+            Assert.AreEqual(secondExpectedClass, confident_results[1].bestClassIndex);
         }
 
         [Test]
@@ -92,7 +90,7 @@ namespace Tests
 
         private List<ResultBox> GetConfidentResults(List<ResultBox> rawResults)
         {
-            return rawResults.Where(box => box.classes[box.bestClassIdx] > min_confidence).ToList();
+            return rawResults.Where(box => box.classes[box.bestClassIndex] > min_confidence).ToList();
         }
 
         private void AssertAreRectsEqual(Rect expected, Rect actual)

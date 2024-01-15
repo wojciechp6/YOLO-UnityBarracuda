@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Linq;
 using Unity.Barracuda;
+using UnityEngine;
 using UnityEngine.Profiling;
 
 namespace NN
@@ -9,19 +10,15 @@ namespace NN
     public class YOLOHandler : IDisposable
     {
         NNHandler nn;
-        IOps ops;
-
+        public IOps ops;
         Tensor premulTensor;
-
         PerformanceCounter.StopwatchCounter stopwatch = new PerformanceCounter.StopwatchCounter("Net inference time");
 
         public YOLOHandler(NNHandler nn)
         {
             this.nn = nn;
-            ops = BarracudaUtils.CreateOps(WorkerFactory.Type.Compute);
-
+            ops = BarracudaUtils.CreateOps(WorkerFactory.Type.ComputePrecompiled);
             premulTensor = new Tensor(1, 1, new float[] { 255 });
-
             PerformanceCounter.GetInstance()?.AddCounter(stopwatch);
         }
 
@@ -31,13 +28,11 @@ namespace NN
 
             Tensor input = new Tensor(tex);
             var preprocessed = Preprocess(input);
-            input.Dispose();
-
-            Tensor output = Execute(preprocessed);
-            preprocessed.Dispose();
-
+            input.tensorOnDevice.Dispose();
+            ExecuteNetwork(preprocessed);
+            preprocessed.tensorOnDevice.Dispose();
+            Tensor output = GetNetwokOutput();
             var results = Postprocess(output);
-            output.Dispose();
 
             Profiler.EndSample();
             return results;
@@ -45,19 +40,20 @@ namespace NN
 
         public void Dispose()
         {
-            premulTensor.Dispose();
+            premulTensor.tensorOnDevice.Dispose();
         }
 
-        private Tensor Execute(Tensor preprocessed)
+        private void ExecuteNetwork(Tensor preprocessed)
         {
             Profiler.BeginSample("YOLO.Execute");
-
             nn.worker.Execute(preprocessed);
-            nn.worker.FlushSchedule();
-            var output = nn.worker.PeekOutput();
-
+            nn.worker.FlushSchedule(blocking: true);
             Profiler.EndSample();
-            return output;
+        }
+
+        private Tensor GetNetwokOutput()
+        {
+            return nn.worker.PeekOutput();
         }
 
         private Tensor Preprocess(Tensor x)
@@ -71,8 +67,8 @@ namespace NN
         List<ResultBox> Postprocess(Tensor x)
         {
             Profiler.BeginSample("YOLO.Postprocess");
-            var results = YOLOPostprocessor.DecodeNNOut(x);
-            DuplicatesSupressor.RemoveDuplicats(results);
+            var results = YOLOv2Postprocessor.DecodeNNOut(x);
+            results = DuplicatesSupressor.RemoveDuplicats(results);
             Profiler.EndSample();
             return results;
         }

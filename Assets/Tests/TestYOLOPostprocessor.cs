@@ -1,11 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using NN;
 using NUnit.Framework;
+using System.Collections.Generic;
 using Unity.Barracuda;
-using UnityEditor;
-using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Tests
 {
@@ -45,7 +41,7 @@ namespace Tests
         public void ReadsTensorSuccessfully()
         {
             Tensor testTensor = CreateInputTensorWithDefaultParameters();
-            List<ResultBox> results = YOLOPostprocessor.DecodeNNOut(testTensor);
+            List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
 
             Assert.AreEqual(5, results.Count);
         }
@@ -56,8 +52,8 @@ namespace Tests
             const int targetClassIndex = 10;
             Tensor testTensor = CreateInputTensorWithGivenParameters(new[] { 0.7f }, new[] { targetClassIndex });
 
-            List<ResultBox> results = YOLOPostprocessor.DecodeNNOut(testTensor);
-            Assert.AreEqual(targetClassIndex, results[0].bestClassIdx);
+            List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
+            Assert.AreEqual(targetClassIndex, results[0].bestClassIndex);
         }
 
         [Test]
@@ -67,7 +63,7 @@ namespace Tests
             const float targetScore = -1000f;
             Tensor testTensor = CreateInputTensorWithGivenParameters(new[] { targetScore }, new[] { targetClassIndex });
 
-            List<ResultBox> results = YOLOPostprocessor.DecodeNNOut(testTensor);
+            List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
             Assert.AreEqual(4, results.Count);
         }
     }
