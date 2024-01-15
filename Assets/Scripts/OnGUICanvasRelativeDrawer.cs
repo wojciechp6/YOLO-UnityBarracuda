@@ -1,6 +1,5 @@
-﻿using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class OnGUICanvasRelativeDrawer : MonoBehaviour
 {
@@ -38,13 +37,14 @@ public class OnGUICanvasRelativeDrawer : MonoBehaviour
         labels.Clear();
     }
 
-    private void Start()
+    private GUIStyle GetStyle()
     {
-        style = new GUIStyle { fontSize = 20, normal = new GUIStyleState { textColor = Color.white } };
+        return new GUIStyle { fontSize = 20, normal = new GUIStyleState { textColor = Color.white } };
     }
 
     private void OnGUI()
     {
+        style = style != null ? style : GetStyle();
         foreach (var label in labels)
         {
             GUI.Label(label.rect, label.text, style);

@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-using System.Collections;
-using Unity.Barracuda;
+﻿using Unity.Barracuda;
 
 public class NNHandler : System.IDisposable
 {

@@ -1,12 +1,13 @@
-﻿using UnityEngine;
+﻿using Unity.Barracuda;
+using UnityEngine;
 
 namespace NN
 {
-    public struct ResultBox
+    public class ResultBox
     {
         public Rect rect;
-        public float confidence;
+        public float score;
         public float[] classes;
-        public int bestClassIdx;
+        public int bestClassIndex;
     }
 }
