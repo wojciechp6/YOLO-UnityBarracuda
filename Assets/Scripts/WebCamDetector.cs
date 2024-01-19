@@ -53,11 +53,16 @@ public class WebCamDetector : MonoBehaviour
 
     void Update()
     {
-        Texture2D camTexture = CamTextureProvider.GetTexture();
+        Texture2D texture = GetNextTexture();
 
-        var boxes = yolo.Run(camTexture);
-        DrawResults(boxes, camTexture);
-        ImageUI.texture = camTexture;
+        var boxes = yolo.Run(texture);
+        DrawResults(boxes, texture);
+        ImageUI.texture = texture;
+    }
+
+    Texture2D GetNextTexture()
+    {
+        return CamTextureProvider.GetTexture();
     }
 
     private void OnDisable()
@@ -83,9 +88,7 @@ public class WebCamDetector : MonoBehaviour
         int boxWidth = (int)(box.score / MinBoxConfidence);
         TextureTools.DrawRectOutline(img, box.rect, boxColor, boxWidth, rectIsNormalized: false, revertY: true);
 
-        var firstInput = nn.model.inputs[0];
-        int height = firstInput.shape[5];
-        int width = firstInput.shape[6];
-        relativeDrawer.DrawLabel(classesNames[box.bestClassIndex], box.rect.position / new Vector2(width, height));
+        Vector2 textureSize = new(img.width, img.height);
+        relativeDrawer.DrawLabel(classesNames[box.bestClassIndex], box.rect.position / textureSize);
     }
 }

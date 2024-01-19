@@ -7,7 +7,6 @@ namespace NN
     {
         public Rect rect;
         public float score;
-        public float[] classes;
         public int bestClassIndex;
     }
 }

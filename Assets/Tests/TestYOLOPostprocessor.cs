@@ -34,7 +34,7 @@ namespace Tests
 
         public Tensor CreateInputTensorWithDefaultParameters()
         {
-            return CreateInputTensorWithGivenParameters(new[] { 0.7f }, new[] { 8 });
+            return CreateInputTensorWithGivenParameters(new[] { 100f }, new[] { 8 });
         }
 
         [Test]
@@ -43,14 +43,14 @@ namespace Tests
             Tensor testTensor = CreateInputTensorWithDefaultParameters();
             List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
 
-            Assert.AreEqual(5, results.Count);
+            Assert.AreEqual(1, results.Count);
         }
 
         [Test]
         public void RightBestClass()
         {
             const int targetClassIndex = 10;
-            Tensor testTensor = CreateInputTensorWithGivenParameters(new[] { 0.7f }, new[] { targetClassIndex });
+            Tensor testTensor = CreateInputTensorWithGivenParameters(new[] { 100f }, new[] { targetClassIndex });
 
             List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
             Assert.AreEqual(targetClassIndex, results[0].bestClassIndex);
@@ -64,7 +64,7 @@ namespace Tests
             Tensor testTensor = CreateInputTensorWithGivenParameters(new[] { targetScore }, new[] { targetClassIndex });
 
             List<ResultBox> results = YOLOv2Postprocessor.DecodeNNOut(testTensor);
-            Assert.AreEqual(4, results.Count);
+            Assert.AreEqual(0, results.Count);
         }
     }
 }
