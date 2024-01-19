@@ -6,7 +6,8 @@ using UnityEngine.Profiling;
 
 public static class DuplicatesSupressor
 {
-    const float OVERLAP_TRESHOLD = 0.3f;
+    const float OverlapThreshold = 0.3f;
+    const int ClassesNum = 20;
 
     static public List<ResultBox> RemoveDuplicats(List<ResultBox> boxes)
     {
@@ -17,11 +18,11 @@ public static class DuplicatesSupressor
 
         List<ResultBox> result_boxes = new();
 
-        for (int classIndex = 0; classIndex < 80; classIndex++)
+        for (int classIndex = 0; classIndex < ClassesNum; classIndex++)
         {
-            var classBoxes = boxes.Where(box => box.bestClassIndex == classIndex).ToList();
-            RemoveDuplicatesForClass(boxes);
-            classBoxes = classBoxes.Where(box => box.score > 0).ToList();
+            List<ResultBox> classBoxes = boxes.Where(box => box.bestClassIndex == classIndex).ToList();
+            RemoveDuplicatesForClass(classBoxes);
+            IEnumerable<ResultBox> filteredClassBoxes = classBoxes.Where(box => box.score > 0);
             result_boxes.AddRange(classBoxes);
         }
 
@@ -43,7 +44,7 @@ public static class DuplicatesSupressor
             {
                 ResultBox j_box = boxes[j];
                 float iou = IntersectionOverUnion.CalculateIOU(i_box.rect, j_box.rect);
-                if (iou >= OVERLAP_TRESHOLD && i_box.score > j_box.score)
+                if (iou >= OverlapThreshold && i_box.score > j_box.score)
                 {
                     j_box.score = 0;
                 }
